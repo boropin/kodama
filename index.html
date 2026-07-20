@@ -1,7 +1,188 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1f6f43"><title>Kodama Sound v0.1</title><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="styles.css"></head><body><main><header><h1>🍉 Kodama Sound</h1><button id="hist">履歴</button></header>
-<section id="home" class="active"><div class="card"><h2>測定方法</h2><ol><li>地面に置くか軽く支える</li><li>ヘタ側の頂点付近</li><li>人差し指の第二関節</li><li>ドアをノックする強さで5回</li><li>スマホを約15cm離す</li></ol></div><div class="card"><label>個体ID<input id="fruit" placeholder="例 2026-001"></label><label>品種<input id="variety" value="小玉スイカ"></label><label>推定受粉日<input id="pollination" type="date"></label></div><button id="start" class="primary big">測定を開始</button><small>音声は端末内で解析し、外部送信しません。</small></section>
-<section id="measure"><h2 id="status">準備中</h2><div id="count">3</div><div id="taps"><b>①</b><b>②</b><b>③</b><b>④</b><b>⑤</b></div><canvas id="wave" width="600" height="180"></canvas><p>カウントダウン後に5回ノックしてください。</p><button id="cancel">中止</button></section>
-<section id="review"><div class="card"><h2>録音確認</h2><p>打音検出 <strong id="tapQuality"></strong></p><p>周囲雑音 <strong id="noiseQuality"></strong></p><p>ばらつき <strong id="varQuality"></strong></p><audio id="audio" controls></audio></div><div class="actions"><button id="redo">やり直す</button><button id="analyse" class="primary">解析する</button></div></section>
-<section id="result"><div class="result"><h2 id="label"></h2><div><span id="score"></span><small>点</small></div><p>確からしさ <strong id="confidence"></strong></p></div><div class="card"><h2>判定理由</h2><ul id="reasons"></ul></div><div class="card"><h2>参考指標</h2><p>主共鳴周波数 <strong id="freq"></strong></p><p>低域比率 <strong id="low"></strong></p><p>減衰時間 <strong id="decay"></strong></p><p>安定度 <strong id="stability"></strong></p></div><div class="warn">試験的な判断支援です。受粉後日数、巻きひげ、果皮、栽培条件と併せて判断してください。</div><button id="save" class="primary big">履歴に保存</button><button id="next">次の個体</button></section>
-<section id="history"><div class="head"><h2>測定履歴</h2><button id="back">戻る</button></div><div id="list"></div><div class="actions"><button id="csv">CSV出力</button><button id="clear">履歴削除</button></div></section>
-</main><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#173f35">
+  <meta name="description" content="小玉スイカの観察情報と打音から収穫時期の判断を補助する試験用Webアプリ">
+  <title>Kodama Sound Analyzer</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__inner">
+      <p class="eyebrow">FIELD TEST · RULE-V0.1</p>
+      <h1><span aria-hidden="true">🍉</span> Kodama Sound</h1>
+      <p>見た目の手がかりと打音をひとつに。小玉スイカの収穫判断を補助する試験版です。</p>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="protocol" aria-labelledby="protocol-title">
+      <div>
+        <p class="section-kicker">測定の前に</p>
+        <h2 id="protocol-title">同じ叩き方で録音してください</h2>
+      </div>
+      <ol>
+        <li><strong>頂点方向</strong>から</li>
+        <li><strong>人差し指の第二関節</strong>で</li>
+        <li><strong>ドアをノックするように</strong>5〜10回</li>
+      </ol>
+    </section>
+
+    <form id="assessment-form" novalidate>
+      <section class="card" aria-labelledby="date-title">
+        <div class="card__number">01</div>
+        <div class="card__body">
+          <div class="card__heading">
+            <div>
+              <p class="section-kicker">生育日数</p>
+              <h2 id="date-title">受粉見込み日</h2>
+            </div>
+            <output id="days-output" class="metric-pill" for="pollination-date measurement-date">未入力</output>
+          </div>
+          <div class="date-grid">
+            <label>受粉見込み日
+              <input id="pollination-date" name="pollinationDate" type="date" required>
+            </label>
+            <label>測定日
+              <input id="measurement-date" name="measurementDate" type="date" required>
+            </label>
+          </div>
+          <p class="hint">小玉スイカの品種や作型により適期は異なります。日数は目安として使います。</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="beard-title">
+        <div class="card__number">02</div>
+        <fieldset class="card__body choice-fieldset">
+          <legend>
+            <span class="section-kicker">目視確認</span>
+            <span id="beard-title" class="legend-title">ひげの枯れ</span>
+          </legend>
+          <div class="choice-grid choice-grid--four">
+            <label class="choice"><input type="radio" name="beard" value="green" required><span><b>青い</b><small>ほぼ枯れていない</small></span></label>
+            <label class="choice"><input type="radio" name="beard" value="tip"><span><b>先端のみ</b><small>枯れ始め</small></span></label>
+            <label class="choice"><input type="radio" name="beard" value="half"><span><b>半分</b><small>半分ほど茶色</small></span></label>
+            <label class="choice"><input type="radio" name="beard" value="brown"><span><b>茶色</b><small>ほぼ完全に枯れ</small></span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card" aria-labelledby="trichome-title">
+        <div class="card__number">03</div>
+        <fieldset class="card__body choice-fieldset">
+          <legend>
+            <span class="section-kicker">へた周辺</span>
+            <span id="trichome-title" class="legend-title">トライコームの量</span>
+          </legend>
+          <div class="choice-grid choice-grid--four">
+            <label class="choice"><input type="radio" name="trichome" value="many" required><span><b>多い</b><small>毛が目立つ</small></span></label>
+            <label class="choice"><input type="radio" name="trichome" value="medium"><span><b>普通</b><small>まだ残る</small></span></label>
+            <label class="choice"><input type="radio" name="trichome" value="few"><span><b>少ない</b><small>わずかに残る</small></span></label>
+            <label class="choice"><input type="radio" name="trichome" value="none"><span><b>ほぼ無い</b><small>毛が見えない</small></span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card" aria-labelledby="pattern-title">
+        <div class="card__number">04</div>
+        <fieldset class="card__body choice-fieldset">
+          <legend>
+            <span class="section-kicker">果皮</span>
+            <span id="pattern-title" class="legend-title">模様の明確具合</span>
+          </legend>
+          <div class="choice-grid choice-grid--three">
+            <label class="choice"><input type="radio" name="pattern" value="faint" required><span><b>ぼんやり</b><small>境界が淡い</small></span></label>
+            <label class="choice"><input type="radio" name="pattern" value="normal"><span><b>普通</b><small>境界が見える</small></span></label>
+            <label class="choice"><input type="radio" name="pattern" value="clear"><span><b>くっきり</b><small>境界が明瞭</small></span></label>
+          </div>
+        </fieldset>
+      </section>
+
+      <section class="card card--audio" aria-labelledby="audio-title">
+        <div class="card__number">05</div>
+        <div class="card__body">
+          <div class="card__heading">
+            <div>
+              <p class="section-kicker">ボイスメモから共有・選択</p>
+              <h2 id="audio-title">打音ファイル</h2>
+            </div>
+            <span id="audio-status" class="status-badge">未選択</span>
+          </div>
+
+          <label class="file-drop" id="file-drop">
+            <input id="audio-file" name="audio" type="file" accept="audio/*,.m4a,.wav,.mp3" required>
+            <span class="file-drop__icon" aria-hidden="true">♪</span>
+            <span><strong>音声ファイルを選択</strong><small>M4A / WAV / MP3 · 端末内で解析</small></span>
+          </label>
+          <p id="file-name" class="file-name" aria-live="polite"></p>
+
+          <div id="audio-preview" class="audio-preview" hidden>
+            <div class="waveform-wrap">
+              <canvas id="waveform" height="180" aria-label="音声波形と検出した打音位置"></canvas>
+              <div class="waveform-legend"><span><i class="tap-dot"></i>検出した打音</span><span id="duration-label"></span></div>
+            </div>
+            <div id="feature-grid" class="feature-grid" aria-live="polite"></div>
+            <details class="developer-panel">
+              <summary>解析の詳細</summary>
+              <div class="sensitivity-control">
+                <label for="sensitivity">打音検出感度 <output id="sensitivity-value">標準</output></label>
+                <input id="sensitivity" type="range" min="0.7" max="1.5" value="1" step="0.05">
+                <button id="reanalyze-button" type="button" class="button button--quiet">この感度で再解析</button>
+              </div>
+              <pre id="analysis-debug"></pre>
+            </details>
+          </div>
+
+          <div id="audio-error" class="notice notice--error" role="alert" hidden></div>
+        </div>
+      </section>
+
+      <button id="analyze-button" class="primary-action" type="submit">
+        <span>総合判定する</span><small>入力と打音を合わせて計算</small>
+      </button>
+    </form>
+
+    <section id="result-section" class="result" aria-labelledby="result-title" hidden>
+      <div class="result__topline">
+        <p class="section-kicker">暫定判定 · RULE-V0.1</p>
+        <span id="confidence-badge" class="confidence-badge"></span>
+      </div>
+      <div class="result__hero">
+        <div class="score-ring"><strong id="score-value">--</strong><span>/ 100</span></div>
+        <div>
+          <p id="result-overline" class="result-overline">音と観察情報から</p>
+          <h2 id="result-title">判定結果</h2>
+          <p id="result-summary"></p>
+        </div>
+      </div>
+      <div class="result__grid">
+        <div>
+          <h3>判定の内訳</h3>
+          <div id="contribution-list" class="contribution-list"></div>
+        </div>
+        <div>
+          <h3>主な理由</h3>
+          <ul id="reason-list" class="reason-list"></ul>
+        </div>
+      </div>
+      <div class="result__notice">
+        <strong>最終判断は畑で。</strong>
+        <span>この値は校正前の暫定ルールです。品種、天候、個体差を踏まえて判断してください。</span>
+      </div>
+      <div class="result__actions">
+        <button id="export-button" type="button" class="button button--dark">結果をJSON保存</button>
+        <button id="reset-button" type="button" class="button button--quiet">新しい判定</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Kodama Sound Analyzer · Field test version</p>
+    <p>音声ファイルは外部へ送信されません。</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
